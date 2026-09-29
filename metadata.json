@@ -1,0 +1,8 @@
+{
+  "name": "Plant Doctor - AI Plant Disease & Care",
+  "description": "AI-based plant disease detection and plant-care assistant with trilingual support in English, Tamil, and Tanglish.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
