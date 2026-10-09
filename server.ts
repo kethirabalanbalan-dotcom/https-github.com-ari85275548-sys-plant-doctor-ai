@@ -481,25 +481,29 @@ app.get('/api/diseases-library', (req, res) => {
 app.post('/api/auth/register', (req, res) => {
   const { full_name, user_id, email, password, preferred_language } = req.body;
 
-  if (!full_name || !user_id || !email || !password) {
-    return res.status(400).json({ error: 'All fields are required' });
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
   }
 
+  const cleanEmail = email.trim().toLowerCase();
+  const derivedUserId = (user_id || cleanEmail.split('@')[0]).trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+  const derivedName = (full_name || cleanEmail.split('@')[0]).trim();
+
   // Check existing
-  const existingUser = db.users.find(u => u.email.toLowerCase() === email.toLowerCase() || u.user_id.toLowerCase() === user_id.toLowerCase());
+  const existingUser = db.users.find(u => u.email.toLowerCase() === cleanEmail);
   if (existingUser) {
-    return res.status(400).json({ error: 'User with this Email or User ID already exists' });
+    return res.status(400).json({ error: 'An account with this Email already exists. Please log in.' });
   }
 
   const newUser: User = {
     id: 'u_' + crypto.randomUUID().slice(0, 8),
-    full_name: full_name.trim(),
-    user_id: user_id.trim().toLowerCase(),
-    email: email.trim().toLowerCase(),
+    full_name: derivedName,
+    user_id: derivedUserId,
+    email: cleanEmail,
     password_hash: hashPassword(password),
     preferred_language: preferred_language || 'en',
     created_at: new Date().toISOString(),
-    avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(user_id)}`
+    avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(cleanEmail)}`
   };
 
   db.users.push(newUser);
@@ -519,19 +523,19 @@ app.post('/api/auth/register', (req, res) => {
   });
 });
 
-// 5. Auth: Login
+// 5. Auth: Login (Email & Password)
 app.post('/api/auth/login', (req, res) => {
-  const { identifier, password } = req.body; // identifier can be user_id or email
+  const { email, identifier, password } = req.body;
+  const loginEmail = (email || identifier || '').trim().toLowerCase();
 
-  if (!identifier || !password) {
-    return res.status(400).json({ error: 'User ID / Email and password are required' });
+  if (!loginEmail || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
   }
 
-  const lookup = identifier.trim().toLowerCase();
-  const user = db.users.find(u => u.email.toLowerCase() === lookup || u.user_id.toLowerCase() === lookup);
+  const user = db.users.find(u => u.email.toLowerCase() === loginEmail || u.user_id.toLowerCase() === loginEmail);
 
   if (!user || user.password_hash !== hashPassword(password)) {
-    return res.status(401).json({ error: 'Invalid User ID / Email or Password' });
+    return res.status(401).json({ error: 'Invalid Email or Password. Please try again.' });
   }
 
   const token = 'user_' + user.id;
@@ -548,6 +552,87 @@ app.post('/api/auth/login', (req, res) => {
       avatar: user.avatar
     }
   });
+});
+
+// 5.1 Chatbot: Agricultural AI Voice & Text Assistant
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { message, language = 'en', history = [] } = req.body;
+
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    const langInstruction = 
+      language === 'ta' 
+        ? 'Respond entirely in pure Tamil (தமிழ்). Use warm, respectful Tamil suitable for farmers. Explain crop issues, medicine dosage, and natural remedies clearly.' 
+        : language === 'tanglish' 
+        ? 'Respond entirely in Tanglish (Spoken Tamil written in simple English alphabet, e.g. "Vanakkam! Ungal payiruku neem oil 5ml spray pannalam. 10 days-ku oru murai repeat pannunga").' 
+        : 'Respond in clear, practical English.';
+
+    const systemPrompt = `You are "Plant Doctor Assistant", an expert agricultural botanist, crop doctor, and agronomy consultant.
+Farmers and gardeners come to you with questions about plant leaf diseases, crop care, organic treatments (Neem oil, Panchagavya, Trichoderma), chemical fungicides, watering, fertilizers (NPK), and pest management.
+
+LANGUAGE REQUIREMENT:
+${langInstruction}
+
+GUIDELINES:
+1. Be helpful, concise, practical, and easy to understand (2-4 short paragraphs or bullet points).
+2. Recommend specific dosage (e.g. 2ml per 1 litre of water).
+3. Always suggest both an organic option and a standard fungicide/pesticide when discussing crop diseases.
+4. Keep the tone friendly, reassuring, and farmer-centric.`;
+
+    // Build chat contents
+    const contents: any[] = [
+      { text: systemPrompt }
+    ];
+
+    // Include last 4 turns of history if present
+    if (Array.isArray(history) && history.length > 0) {
+      for (const h of history.slice(-4)) {
+        if (h.sender === 'user') {
+          contents.push({ text: `Farmer: ${h.text}` });
+        } else if (h.sender === 'bot') {
+          contents.push({ text: `Plant Doctor: ${h.text}` });
+        }
+      }
+    }
+
+    contents.push({ text: `Farmer Question: ${message}\nPlant Doctor:` });
+
+    try {
+      const aiResponse = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-lite',
+        contents
+      });
+
+      const replyText = aiResponse.text || '';
+      return res.json({
+        reply: replyText.trim(),
+        language
+      });
+    } catch (apiErr: any) {
+      console.warn('Gemini chat API error, using smart agricultural fallback:', apiErr.message);
+
+      // Smart multilingual fallback if network fails
+      let fallbackReply = '';
+      if (language === 'ta') {
+        fallbackReply = 'வணக்கம்! உங்கள் பயிரின் இலைகளில் நோய் புள்ளிகள் அல்லது பூச்சித் தாக்குதல் காணப்பட்டால், 5மி.லி வேப்பெண்ணெய் மற்றும் 2மி.லி சோப் திரவத்தை 1 லிட்டர் நீரில் கலந்து காலை வேளையில் இலைகளின் மேல் மற்றும் அடியில் படுமாறு தெளிக்கவும். பூஞ்சாணக் கருகல் நோய்க்கு காப்பர் ஆக்ஸிகுளோரைடு அல்லது மேன்கோசெப் 2 கிராம் / லிட்டர் பயன்படுத்தலாம்.';
+      } else if (language === 'tanglish') {
+        fallbackReply = 'Vanakkam! Ungal plant-la poochi thollai allathu ilai karugal irunthaal, 1 litre thanni-la 5ml Neem oil + 2ml detergent serthu morning spray pannunga. Fungal noi irunthaal Mancozeb 2g per litre spray pannuvathu nallathu.';
+      } else {
+        fallbackReply = 'Hello! For common leaf spots, rusts, or pests, mix 5ml of cold-pressed Neem oil with 2ml of mild liquid soap in 1 liter of clean water and spray evenly during early morning. For severe fungal blights, apply Mancozeb 75% WP @ 2g/L or Copper Oxychloride @ 2.5g/L.';
+      }
+
+      return res.json({
+        reply: fallbackReply,
+        language
+      });
+    }
+  } catch (err: any) {
+    console.error('Chat endpoint error:', err);
+    res.status(500).json({ error: 'Failed to process chat message' });
+  }
 });
 
 // 6. Auth: Current User
@@ -1517,20 +1602,26 @@ app.post('/api/history', (req, res) => {
 // 12. History: Delete item
 app.delete('/api/history/:id', (req, res) => {
   const user = getAuthUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  const { id } = req.params;
+
+  if (id === 'all') {
+    if (user) {
+      db.plant_analysis = db.plant_analysis.filter(a => a.user_id !== user.id);
+    } else {
+      db.plant_analysis = [];
+    }
+    saveDatabase(db);
+    return res.json({ success: true, message: 'All records deleted' });
   }
 
-  const { id } = req.params;
-  const initialLen = db.plant_analysis.length;
-  db.plant_analysis = db.plant_analysis.filter(a => !(a.id === id && a.user_id === user.id));
-
-  if (db.plant_analysis.length === initialLen) {
-    return res.status(404).json({ error: 'Record not found or not authorized' });
+  if (user) {
+    db.plant_analysis = db.plant_analysis.filter(a => !(a.id === id && a.user_id === user.id));
+  } else {
+    db.plant_analysis = db.plant_analysis.filter(a => a.id !== id);
   }
 
   saveDatabase(db);
-  res.json({ message: 'Record deleted successfully' });
+  res.json({ success: true, message: 'Record deleted successfully' });
 });
 
 // Start server with Vite middleware in dev or static files in prod

@@ -7,13 +7,13 @@ import {
   Menu, 
   X, 
   Database, 
-  BookOpen, 
   History, 
   Camera, 
   Home, 
   Sun, 
   Moon,
-  Sparkles
+  Sparkles,
+  Stethoscope
 } from 'lucide-react';
 import { User, Language } from '../types';
 import { UI_TRANSLATIONS } from '../utils/translations';
@@ -46,17 +46,16 @@ export const Navbar: React.FC<NavbarProps> = ({
   const t = UI_TRANSLATIONS[currentLanguage];
 
   const languages: { code: Language; label: string; sub: string }[] = [
-    { code: 'en', label: 'English', sub: 'Global' },
+    { code: 'en', label: 'English', sub: 'Default' },
     { code: 'ta', label: 'தமிழ்', sub: 'Tamil' },
     { code: 'tanglish', label: 'Tanglish', sub: 'Tamil in English' }
   ];
 
   const navItems = [
-    { id: 'dashboard', label: t.home, icon: Home },
-    { id: 'analyze', label: t.analyze, icon: Camera },
-    { id: 'history', label: t.history, icon: History },
-    { id: 'library', label: t.library, icon: BookOpen },
-    { id: 'database', label: t.database, icon: Database }
+    { id: 'dashboard', label: t.home || 'Home', icon: Home },
+    { id: 'analyze', label: t.analyze || 'Plant Scan', icon: Camera },
+    { id: 'diagnose', label: currentLanguage === 'ta' ? 'நோய் சோதனை' : 'Diagnose', icon: Stethoscope },
+    { id: 'history', label: t.history || 'History', icon: History }
   ];
 
   return (

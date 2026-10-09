@@ -92,17 +92,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     try {
       await registerUser({
-        full_name: fullName,
-        user_id: userId,
+        full_name: fullName || email.split('@')[0],
         email,
         password,
         preferred_language: preferredLang
       });
 
       // Switch to login tab after registration
-      setSuccessNotice('Registration successful! Please sign in with your credentials.');
+      setSuccessNotice('Registration successful! Please sign in with your email and password.');
       setMode('login');
-      setIdentifier(userId || email);
+      setIdentifier(email);
       setPassword('');
       onLanguageChange(preferredLang);
     } catch (err: any) {
@@ -223,18 +222,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                  {t.userIdOrEmail}
+                  {currentLanguage === 'ta' ? 'மின்னஞ்சல் முகவரி (Email ID)' : 'Email ID'}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400">
                     <UserIcon className="w-4 h-4" />
                   </div>
                   <input
-                    type="text"
+                    type="email"
                     required
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    placeholder="e.g. aruna_farmer or demo@plantdoctor.ai"
+                    placeholder="farmer@gmail.com"
                     className="w-full pl-9 pr-3 py-2.5 bg-stone-50 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 rounded-xl text-xs text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
@@ -292,7 +291,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   className="w-full py-2 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 text-xs font-semibold rounded-xl flex items-center justify-center space-x-1.5 transition-colors border border-stone-200 dark:border-stone-700"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>{t.tryDemoUser} (Dr. Aruna)</span>
+                  <span>{t.tryDemoUser} (demo@plantdoctor.ai)</span>
                 </button>
               </div>
 
@@ -313,46 +312,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <form onSubmit={handleRegister} className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                  {t.fullName}
+                  {currentLanguage === 'ta' ? 'மின்னஞ்சல் முகவரி (Email ID)' : 'Email Address'}
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="farmer@gmail.com"
+                  className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 rounded-xl text-xs text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                  {currentLanguage === 'ta' ? 'முழு பெயர் (விருப்பமானது)' : 'Full Name (Optional)'}
                 </label>
                 <input
                   type="text"
-                  required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="e.g. Ramesh Kumar"
                   className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 rounded-xl text-xs text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:ring-2 focus:ring-emerald-500"
                 />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    User ID
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={userId}
-                    onChange={(e) => setUserId(e.target.value)}
-                    placeholder="ramesh_farmer"
-                    className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 rounded-xl text-xs text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="farmer@agri.in"
-                    className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 rounded-xl text-xs text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">

@@ -42,12 +42,11 @@ export const LoginGateView: React.FC<LoginGateViewProps> = ({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Login form state
-  const [loginIdentifier, setLoginIdentifier] = useState('');
+  const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
   // Register form state
   const [regFullName, setRegFullName] = useState('');
-  const [regUserId, setRegUserId] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
@@ -67,8 +66,8 @@ export const LoginGateView: React.FC<LoginGateViewProps> = ({
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!loginIdentifier.trim() || !loginPassword.trim()) {
-      setError(currentLanguage === 'ta' ? 'பயனர் ஐடி மற்றும் கடவுச்சொல்லை உள்ளிடவும்' : 'Please enter User ID / Email and password');
+    if (!loginEmail.trim() || !loginPassword.trim()) {
+      setError(currentLanguage === 'ta' ? 'மின்னஞ்சல் முகவரி மற்றும் கடவுச்சொல்லை உள்ளிடவும்' : 'Please enter Email ID and password');
       return;
     }
 
@@ -76,10 +75,10 @@ export const LoginGateView: React.FC<LoginGateViewProps> = ({
     setLoading(true);
 
     try {
-      const data = await loginUser(loginIdentifier, loginPassword);
+      const data = await loginUser(loginEmail, loginPassword);
       onAuthSuccess(data.user);
     } catch (err: any) {
-      setError(err.message || 'Invalid credentials. Please check your username/password.');
+      setError(err.message || 'Invalid Email or password. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -89,7 +88,7 @@ export const LoginGateView: React.FC<LoginGateViewProps> = ({
     setError(null);
     setLoading(true);
     try {
-      const data = await loginUser('aruna_farmer', 'password123');
+      const data = await loginUser('demo@plantdoctor.ai', 'password123');
       onAuthSuccess(data.user);
     } catch (err: any) {
       setError(err.message || 'Quick login failed');
@@ -102,6 +101,11 @@ export const LoginGateView: React.FC<LoginGateViewProps> = ({
     e.preventDefault();
     setError(null);
     setSuccessNotice(null);
+
+    if (!regEmail.trim()) {
+      setError(currentLanguage === 'ta' ? 'சரியான மின்னஞ்சல் முகவரியை உள்ளிடவும்' : 'Please enter a valid email address');
+      return;
+    }
 
     if (regPassword !== regConfirmPassword) {
       setError(currentLanguage === 'ta' ? 'கடவுச்சொற்கள் பொருந்தவில்லை' : 'Passwords do not match');
@@ -117,19 +121,18 @@ export const LoginGateView: React.FC<LoginGateViewProps> = ({
 
     try {
       const result = await registerUser({
-        full_name: regFullName,
-        user_id: regUserId,
+        full_name: regFullName || regEmail.split('@')[0],
         email: regEmail,
         password: regPassword,
         preferred_language: regLanguage
       });
 
       setSuccessNotice(currentLanguage === 'ta' ? 'கணக்கு வெற்றிகரமாக உருவாக்கப்பட்டது! இப்போது உள்நுழையலாம்.' : 'Account created successfully! You can now log in.');
-      setLoginIdentifier(regUserId || regEmail);
+      setLoginEmail(regEmail);
       setLoginPassword(regPassword);
       setTab('login');
     } catch (err: any) {
-      setError(err.message || 'Registration failed. User ID or Email might already exist.');
+      setError(err.message || 'Registration failed. Email might already exist.');
     } finally {
       setLoading(false);
     }
@@ -254,15 +257,15 @@ export const LoginGateView: React.FC<LoginGateViewProps> = ({
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-stone-700 dark:text-stone-300">
-                  {currentLanguage === 'ta' ? 'பயனர் ஐடி அல்லது மின்னஞ்சல்' : 'User ID or Email'}
+                  {currentLanguage === 'ta' ? 'மின்னஞ்சல் முகவரி (Email ID)' : 'Email ID'}
                 </label>
                 <div className="relative">
-                  <UserIcon className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <Mail className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
-                    type="text"
-                    value={loginIdentifier}
-                    onChange={(e) => setLoginIdentifier(e.target.value)}
-                    placeholder="e.g. aruna_farmer or demo@plantdoctor.ai"
+                    type="email"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    placeholder="farmer@gmail.com"
                     required
                     className="w-full pl-10 pr-4 py-2.5 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-2xl text-xs text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                   />
@@ -272,7 +275,7 @@ export const LoginGateView: React.FC<LoginGateViewProps> = ({
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-stone-700 dark:text-stone-300">
-                    {currentLanguage === 'ta' ? 'கடவுச்சொல்' : 'Password'}
+                    {currentLanguage === 'ta' ? 'கடவுச்சொல் (Password)' : 'Password'}
                   </label>
                   <button
                     type="button"
@@ -328,7 +331,7 @@ export const LoginGateView: React.FC<LoginGateViewProps> = ({
                 >
                   <Sparkles className="w-4 h-4 text-emerald-600" />
                   <span>
-                    {currentLanguage === 'ta' ? '🚀 1-கிளிக் விவசாயி உடனடி உள்நுழைவு (Demo)' : '🚀 1-Click Quick Demo Login'}
+                    {currentLanguage === 'ta' ? '🚀 1-கிளிக் உடனடி உள்நுழைவு (Demo)' : '🚀 1-Click Demo Login (demo@plantdoctor.ai)'}
                   </span>
                 </button>
 
@@ -350,15 +353,15 @@ export const LoginGateView: React.FC<LoginGateViewProps> = ({
             <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-stone-700 dark:text-stone-300">
-                  {currentLanguage === 'ta' ? 'முழு பெயர்' : 'Full Name'}
+                  {currentLanguage === 'ta' ? 'மின்னஞ்சல் முகவரி (Email ID)' : 'Email Address'}
                 </label>
                 <div className="relative">
-                  <UserIcon className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <Mail className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
-                    type="text"
-                    value={regFullName}
-                    onChange={(e) => setRegFullName(e.target.value)}
-                    placeholder="e.g. Ramesh Kumar"
+                    type="email"
+                    value={regEmail}
+                    onChange={(e) => setRegEmail(e.target.value)}
+                    placeholder="farmer@gmail.com"
                     required
                     className="w-full pl-10 pr-4 py-2 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-2xl text-xs text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                   />
@@ -367,30 +370,15 @@ export const LoginGateView: React.FC<LoginGateViewProps> = ({
 
               <div className="space-y-1">
                 <label className="text-xs font-bold text-stone-700 dark:text-stone-300">
-                  {currentLanguage === 'ta' ? 'பயனர் ஐடி (User ID)' : 'User ID'}
-                </label>
-                <input
-                  type="text"
-                  value={regUserId}
-                  onChange={(e) => setRegUserId(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                  placeholder="e.g. ramesh_farm"
-                  required
-                  className="w-full px-4 py-2 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-2xl text-xs text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-stone-700 dark:text-stone-300">
-                  {currentLanguage === 'ta' ? 'மின்னஞ்சல் முகவரி' : 'Email Address'}
+                  {currentLanguage === 'ta' ? 'பெயர் (விருப்பமானது)' : 'Full Name (Optional)'}
                 </label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <UserIcon className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
-                    type="email"
-                    value={regEmail}
-                    onChange={(e) => setRegEmail(e.target.value)}
-                    placeholder="e.g. ramesh@farm.com"
-                    required
+                    type="text"
+                    value={regFullName}
+                    onChange={(e) => setRegFullName(e.target.value)}
+                    placeholder="e.g. Ramesh Kumar"
                     className="w-full pl-10 pr-4 py-2 bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-2xl text-xs text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>

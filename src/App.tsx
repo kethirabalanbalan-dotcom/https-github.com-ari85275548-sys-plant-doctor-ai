@@ -6,12 +6,13 @@ import { AnalyzeView } from './components/AnalyzeView';
 import { AnalysisLoadingView } from './components/AnalysisLoadingView';
 import { ResultView } from './components/ResultView';
 import { HistoryView } from './components/HistoryView';
-import { LibraryView } from './components/LibraryView';
-import { DatabaseView } from './components/DatabaseView';
 import { ProfileView } from './components/ProfileView';
 import { SettingsView } from './components/SettingsView';
 import { AuthModal } from './components/AuthModal';
 import { LoginGateView } from './components/LoginGateView';
+import { PlantDoctorChatbot } from './components/PlantDoctorChatbot';
+import { ChooseAffectedPartView } from './components/ChooseAffectedPartView';
+import { LibraryView } from './components/LibraryView';
 import { Sprout } from 'lucide-react';
 
 import { User, Language, PlantAnalysisData } from './types';
@@ -24,7 +25,8 @@ import {
   analyzePlantPhoto, 
   getAnalysisHistory, 
   saveAnalysisResult, 
-  deleteAnalysisResult 
+  deleteAnalysisResult,
+  clearAllHistory
 } from './services/api';
 
 export default function App() {
@@ -201,15 +203,17 @@ export default function App() {
         setCurrentResult(enrichedResult);
         setActiveTab('result');
 
-        // If user is logged in, automatically save or allow one-click save
-        if (user) {
-          saveAnalysisResult(enrichedResult)
-            .then((savedRecord) => {
-              setIsCurrentResultSaved(true);
-              setHistory((prev) => [savedRecord, ...prev]);
-            })
-            .catch((err) => console.warn('Autosave skipped:', err));
-        }
+        // Always save analysis to history (both local and server)
+        saveAnalysisResult(enrichedResult)
+          .then((savedRecord) => {
+            setIsCurrentResultSaved(true);
+            setHistory((prev) => [savedRecord, ...prev.filter(h => h.id !== savedRecord.id)]);
+          })
+          .catch((err) => {
+            console.warn('Autosave fallback:', err);
+            setIsCurrentResultSaved(true);
+            setHistory((prev) => [enrichedResult, ...prev]);
+          });
       }
     } catch (err: any) {
       alert(err.message || 'Error running AI analysis. Please check your image.');
@@ -220,28 +224,40 @@ export default function App() {
 
   const handleSaveToHistory = async () => {
     if (!currentResult) return;
-    if (!user) {
-      handleOpenAuth('login');
-      return;
-    }
     try {
       const saved = await saveAnalysisResult(currentResult);
       setIsCurrentResultSaved(true);
       setHistory((prev) => [saved, ...prev.filter((h) => h.id !== saved.id)]);
     } catch (err: any) {
-      alert(err.message || 'Failed to save to history');
+      setIsCurrentResultSaved(true);
+      setHistory((prev) => [currentResult, ...prev.filter((h) => h.id !== currentResult.id)]);
     }
   };
 
   const handleDeleteHistory = async (id: string) => {
+    // Delete immediately from local UI state
+    setHistory((prev) => prev.filter((h) => {
+      const recId = h.id || (h as any)._id || h.analysis_date || h.plantName;
+      return recId !== id && h.id !== id;
+    }));
+    if (currentResult?.id === id) {
+      setCurrentResult(null);
+    }
+
     try {
       await deleteAnalysisResult(id);
-      setHistory((prev) => prev.filter((h) => h.id !== id));
-      if (currentResult?.id === id) {
-        setCurrentResult(null);
-      }
     } catch (err: any) {
-      alert(err.message || 'Failed to delete record');
+      console.warn('Background delete error (UI updated):', err);
+    }
+  };
+
+  const handleClearAllHistory = async () => {
+    setHistory([]);
+    setCurrentResult(null);
+    try {
+      await clearAllHistory();
+    } catch (err: any) {
+      console.warn('Background clear all history error:', err);
     }
   };
 
@@ -294,29 +310,37 @@ export default function App() {
   }
 
   return (
-    <div className={`min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 transition-colors ${
+    <div className={`min-h-screen bg-gradient-to-br from-[#f8fafc] via-[#f1f5f9] to-[#f3f0ff] dark:from-[#090d16] dark:via-[#0f172a] dark:to-[#1e1b4b] text-stone-900 dark:text-stone-100 transition-colors relative selection:bg-purple-200 selection:text-purple-900 ${
       currentLanguage === 'ta' ? 'font-tamil' : ''
     }`}>
-      {/* Top Navbar */}
-      <Navbar
-        user={user}
-        currentLanguage={currentLanguage}
-        onLanguageChange={handleLanguageChange}
-        activeTab={activeTab}
-        onTabChange={(tab) => {
-          if (tab === 'analyze') {
-            setPreloadedSample(null);
-          }
-          setActiveTab(tab);
-        }}
-        onOpenAuth={() => handleOpenAuth('login')}
-        onLogout={handleLogout}
-        theme={theme}
-        onToggleTheme={handleToggleTheme}
-      />
+      {/* Soft ambient botanical light orbs for attractive depth */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-emerald-200/20 dark:bg-emerald-600/10 blur-3xl animate-pulse" />
+        <div className="absolute top-1/3 -right-32 w-[32rem] h-[32rem] rounded-full bg-purple-200/25 dark:bg-purple-600/10 blur-3xl" />
+        <div className="absolute -bottom-32 left-1/4 w-96 h-96 rounded-full bg-teal-200/20 dark:bg-teal-600/10 blur-3xl" />
+      </div>
+      {/* Top Navbar (hidden on mobile when on dashboard to match mobile screenshot) */}
+      <div className={activeTab === 'dashboard' ? 'hidden md:block' : ''}>
+        <Navbar
+          user={user}
+          currentLanguage={currentLanguage}
+          onLanguageChange={handleLanguageChange}
+          activeTab={activeTab}
+          onTabChange={(tab) => {
+            if (tab === 'analyze') {
+              setPreloadedSample(null);
+            }
+            setActiveTab(tab);
+          }}
+          onOpenAuth={() => handleOpenAuth('login')}
+          onLogout={handleLogout}
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
+        />
+      </div>
 
       {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-20 md:pb-12">
+      <main className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 pt-2 sm:pt-6 pb-24 md:pb-12">
         {/* Render View based on activeTab and isAnalyzing state */}
         {isAnalyzing ? (
           <AnalysisLoadingView currentLanguage={currentLanguage} />
@@ -324,12 +348,28 @@ export default function App() {
           <DashboardView
             user={user}
             currentLanguage={currentLanguage}
+            onLanguageChange={handleLanguageChange}
+            theme={theme}
+            onToggleTheme={handleToggleTheme}
             onNavigateToAnalyze={handleNavigateToAnalyze}
+            onNavigateToDiagnose={() => setActiveTab('diagnose')}
+            onNavigateToPlantGuide={() => setActiveTab('library')}
+            onNavigateToHistory={() => setActiveTab('history')}
             onSelectSample={handleSelectSample}
             recentAnalyses={history}
             onSelectHistoryItem={handleSelectHistoryItem}
             onOpenAuth={() => handleOpenAuth('login')}
+            onLogout={handleLogout}
             onStartAnalysis={handleStartAnalysis}
+          />
+        ) : activeTab === 'diagnose' ? (
+          <ChooseAffectedPartView
+            currentLanguage={currentLanguage}
+            onBack={() => setActiveTab('dashboard')}
+            onStartAnalysisWithPart={(part, mode) => {
+              setInitialAnalyzeMode(mode);
+              setActiveTab('analyze');
+            }}
           />
         ) : activeTab === 'analyze' ? (
           <AnalyzeView
@@ -358,12 +398,13 @@ export default function App() {
             currentLanguage={currentLanguage}
             onSelectRecord={handleSelectHistoryItem}
             onDeleteRecord={handleDeleteHistory}
+            onClearAllRecords={handleClearAllHistory}
             onNavigateToAnalyze={() => handleNavigateToAnalyze('upload')}
           />
         ) : activeTab === 'library' ? (
           <LibraryView
             currentLanguage={currentLanguage}
-            onSelectPlantToAnalyze={(plantName) => {
+            onSelectPlantToAnalyze={(plantName: string) => {
               const matchedSample = SAMPLE_PLANTS.find((s) =>
                 s.name.toLowerCase().includes(plantName.toLowerCase())
               );
@@ -373,8 +414,6 @@ export default function App() {
               setActiveTab('analyze');
             }}
           />
-        ) : activeTab === 'database' ? (
-          <DatabaseView />
         ) : activeTab === 'profile' ? (
           <ProfileView
             user={user}
@@ -428,6 +467,9 @@ export default function App() {
         currentLanguage={currentLanguage}
         onLanguageChange={handleLanguageChange}
       />
+
+      {/* Floating Side AI Voice Chatbot (Tamil / English / Tanglish) */}
+      <PlantDoctorChatbot currentLanguage={currentLanguage} />
     </div>
   );
 }

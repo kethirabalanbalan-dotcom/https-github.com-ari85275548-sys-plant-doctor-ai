@@ -3,14 +3,13 @@ import {
   History as HistoryIcon, 
   Search, 
   Trash2, 
-  ArrowRight, 
   Calendar, 
   Camera, 
   Leaf, 
-  Filter,
-  CheckCircle2,
-  AlertTriangle,
-  Heart
+  CheckCircle2, 
+  AlertTriangle, 
+  Heart,
+  X
 } from 'lucide-react';
 import { PlantAnalysisData, Language } from '../types';
 import { UI_TRANSLATIONS } from '../utils/translations';
@@ -20,6 +19,7 @@ interface HistoryViewProps {
   currentLanguage: Language;
   onSelectRecord: (record: PlantAnalysisData) => void;
   onDeleteRecord: (id: string) => void;
+  onClearAllRecords?: () => void;
   onNavigateToAnalyze: () => void;
 }
 
@@ -28,11 +28,13 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   currentLanguage,
   onSelectRecord,
   onDeleteRecord,
+  onClearAllRecords,
   onNavigateToAnalyze
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'Healthy' | 'Diseased'>('ALL');
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const t = UI_TRANSLATIONS[currentLanguage];
 
   const diseasedCount = history.filter(h => h.status === 'Diseased').length;
@@ -43,182 +45,261 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
     setFavorites(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const handleDeleteItem = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDeleteRecord(id);
+  };
+
   const filtered = history.filter((item) => {
-    const matchesSearch =
-      item.plantName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.diseaseName?.toLowerCase().includes(searchTerm.toLowerCase());
+    const pName = (item.plantName || (item as any).plant_name || '').toLowerCase();
+    const dName = (item.diseaseName || (item as any).disease_name || '').toLowerCase();
+    const query = searchTerm.toLowerCase();
+    const matchesSearch = !query || pName.includes(query) || dName.includes(query);
     const matchesStatus =
       statusFilter === 'ALL' || item.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-12 animate-in fade-in duration-200">
+    <div className="max-w-5xl mx-auto space-y-6 pb-20 animate-in fade-in duration-200">
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-stone-900 dark:text-stone-100 flex items-center space-x-2">
-            <HistoryIcon className="w-6 h-6 text-emerald-600" />
-            <span>My Collection</span>
+            <HistoryIcon className="w-6 h-6 text-purple-600" />
+            <span>{currentLanguage === 'ta' ? 'பரிசோதனை வரலாறு' : 'Diagnosis History'}</span>
           </h1>
           <p className="text-xs text-stone-500 dark:text-stone-400">
-            Your saved plants, identified diseases, and monitored crop records.
+            {currentLanguage === 'ta' 
+              ? 'முன்பு ஸ்கேன் செய்து கண்டறியப்பட்ட பயிர்கள் மற்றும் தாவர நோய்கள்.' 
+              : 'Your previously scanned plants, detected diseases, and care records.'}
           </p>
         </div>
 
-        <button
-          onClick={onNavigateToAnalyze}
-          className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all flex items-center space-x-1.5 self-start sm:self-auto cursor-pointer"
-        >
-          <Camera className="w-4 h-4" />
-          <span>Identify New Plant</span>
-        </button>
+        <div className="flex items-center space-x-2 self-start sm:self-auto">
+          {history.length > 0 && onClearAllRecords && (
+            <div>
+              {showClearConfirm ? (
+                <div className="flex items-center space-x-1 bg-rose-50 dark:bg-rose-950/60 p-1 rounded-2xl border border-rose-300">
+                  <span className="text-[11px] font-bold text-rose-700 px-2">
+                    {currentLanguage === 'ta' ? 'அனைத்தையும் நீக்கவா?' : 'Delete all?'}
+                  </span>
+                  <button
+                    onClick={() => {
+                      onClearAllRecords();
+                      setShowClearConfirm(false);
+                    }}
+                    className="px-2.5 py-1 rounded-xl bg-rose-600 text-white text-[11px] font-bold hover:bg-rose-700 cursor-pointer"
+                  >
+                    Yes
+                  </button>
+                  <button
+                    onClick={() => setShowClearConfirm(false)}
+                    className="px-2 py-1 rounded-xl bg-stone-200 text-stone-700 text-[11px] font-bold cursor-pointer"
+                  >
+                    No
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowClearConfirm(true)}
+                  className="px-3 py-2 rounded-2xl text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer border bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-400 border-stone-200 dark:border-stone-700 hover:text-rose-600 hover:border-rose-300"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-stone-400" />
+                  <span>{currentLanguage === 'ta' ? 'அனைத்தையும் நீக்கு' : 'Clear All'}</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          <button
+            onClick={onNavigateToAnalyze}
+            className="px-4 py-2 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md shadow-purple-500/20 transition-all flex items-center space-x-1.5 cursor-pointer"
+          >
+            <Camera className="w-4 h-4" />
+            <span>{t.analyzePlantBtn || 'Scan Plant'}</span>
+          </button>
+        </div>
       </div>
 
-      {/* Filter and Search Bar (Matching Screen 4 Pills) */}
+      {/* Filter and Search Bar */}
       <div className="space-y-3">
         <div className="relative">
-          <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-purple-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search plant name or disease..."
-            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-2xl text-xs text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+            placeholder={currentLanguage === 'ta' ? "பயிர் அல்லது நோய் பெயர் கொண்டு தேடுங்கள்..." : "Search plant name or disease..."}
+            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-stone-800 border border-purple-100 dark:border-stone-700 rounded-2xl text-xs text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-hidden focus:ring-2 focus:ring-purple-500 shadow-2xs font-medium"
           />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-1"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
-        {/* Filter Pills matching Screen 4: All (12), Diseased (3), Healthy (9) */}
+        {/* Filter Pills */}
         <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-none">
           <button
             onClick={() => setStatusFilter('ALL')}
-            className={`px-4 py-1.5 rounded-full text-xs font-extrabold whitespace-nowrap transition-all ${
+            className={`px-4 py-1.5 rounded-full text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer ${
               statusFilter === 'ALL'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-400 border border-stone-200 dark:border-stone-700 hover:border-emerald-400'
+                ? 'bg-purple-600 text-white shadow-sm ring-2 ring-purple-300'
+                : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-100 border border-stone-200 dark:border-stone-700'
             }`}
           >
-            All ({history.length})
+            {currentLanguage === 'ta' ? 'அனைத்தும்' : 'All'} ({history.length})
           </button>
-
           <button
             onClick={() => setStatusFilter('Diseased')}
-            className={`px-4 py-1.5 rounded-full text-xs font-extrabold whitespace-nowrap transition-all ${
+            className={`px-4 py-1.5 rounded-full text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer ${
               statusFilter === 'Diseased'
-                ? 'bg-rose-600 text-white shadow-xs'
-                : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-400 border border-stone-200 dark:border-stone-700 hover:border-rose-400'
+                ? 'bg-rose-500 text-white shadow-sm ring-2 ring-rose-300'
+                : 'bg-white dark:bg-stone-800 text-rose-600 hover:bg-rose-50 border border-stone-200 dark:border-stone-700'
             }`}
           >
-            Diseased ({diseasedCount})
+            {currentLanguage === 'ta' ? 'நோய் தாக்கியவை' : 'Diseased'} ({diseasedCount})
           </button>
-
           <button
             onClick={() => setStatusFilter('Healthy')}
-            className={`px-4 py-1.5 rounded-full text-xs font-extrabold whitespace-nowrap transition-all ${
+            className={`px-4 py-1.5 rounded-full text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer ${
               statusFilter === 'Healthy'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-400 border border-stone-200 dark:border-stone-700 hover:border-emerald-400'
+                ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-300'
+                : 'bg-white dark:bg-stone-800 text-emerald-600 hover:bg-emerald-50 border border-stone-200 dark:border-stone-700'
             }`}
           >
-            Healthy ({healthyCount})
+            {currentLanguage === 'ta' ? 'ஆரோக்கியமானவை' : 'Healthy'} ({healthyCount})
           </button>
         </div>
       </div>
 
-      {/* Records List / Grid (Matching Screen 4 Aesthetic 2-column cards) */}
+      {/* Plant History Cards Grid */}
       {filtered.length === 0 ? (
-        <div className="p-12 text-center bg-white dark:bg-stone-800 rounded-3xl border border-stone-200 dark:border-stone-700 space-y-3">
-          <div className="w-14 h-14 rounded-2xl bg-stone-100 dark:bg-stone-700 text-stone-400 flex items-center justify-center mx-auto">
-            <Leaf className="w-7 h-7" />
+        <div className="text-center py-16 bg-white dark:bg-stone-800/50 rounded-3xl border border-stone-200 dark:border-stone-700 p-8 space-y-4">
+          <div className="w-16 h-16 rounded-3xl bg-purple-50 dark:bg-purple-900/30 text-purple-600 flex items-center justify-center mx-auto shadow-inner">
+            <Leaf className="w-8 h-8" />
           </div>
-          <h3 className="text-base font-bold text-stone-800 dark:text-stone-200">
-            No plants in this category
-          </h3>
-          <p className="text-xs text-stone-500 dark:text-stone-400 max-w-sm mx-auto">
-            {searchTerm || statusFilter !== 'ALL'
-              ? 'Try adjusting your search query or filter.'
-              : 'Scan your first plant leaf or upload a photo to build your collection.'}
-          </p>
+          <div className="space-y-1">
+            <h3 className="text-base font-extrabold text-stone-900 dark:text-stone-100">
+              {searchTerm 
+                ? (currentLanguage === 'ta' ? 'பயிர்கள் எதுவும் கிடைக்கவில்லை' : 'No matching plants found')
+                : (currentLanguage === 'ta' ? 'வரலாற்றில் பதிவுகள் இல்லை' : 'No scan history yet')}
+            </h3>
+            <p className="text-xs text-stone-500 max-w-sm mx-auto">
+              {searchTerm 
+                ? (currentLanguage === 'ta' ? 'வேறு பயிர் பெயர் கொண்டு தேடவும்.' : 'Try searching for another crop name or clear filter.')
+                : (currentLanguage === 'ta' ? 'கேமரா மூலம் செடியை படம் எடுத்து நோயைக் கண்டறியுங்கள்.' : 'Scan a plant with the camera to start tracking plant health.')}
+            </p>
+          </div>
           <button
             onClick={onNavigateToAnalyze}
-            className="mt-2 px-5 py-2.5 rounded-2xl bg-emerald-600 text-white font-bold text-xs cursor-pointer"
+            className="px-5 py-2.5 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-extrabold shadow-md shadow-purple-500/20 active:scale-95 transition-all inline-flex items-center space-x-2 cursor-pointer"
           >
-            {t.analyzePlantBtn}
+            <Camera className="w-4 h-4" />
+            <span>{currentLanguage === 'ta' ? 'செடியை ஸ்கேன் செய்க' : 'Scan First Plant'}</span>
           </button>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-          {filtered.map((item) => {
-            const isFav = favorites[item.id || ''] || false;
+          {filtered.map((item, idx) => {
+            const isDiseased = item.status === 'Diseased';
+            const id = item.id || (item as any)._id || `hist_${idx}`;
+            const isFavorited = !!favorites[id];
+            const dateStr = item.analysis_date 
+              ? new Date(item.analysis_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+              : 'Recent Scan';
+
             return (
               <div
-                key={item.id || Math.random().toString()}
+                key={id}
                 onClick={() => onSelectRecord(item)}
-                className="bg-white dark:bg-stone-800 rounded-3xl border border-stone-200/80 dark:border-stone-700 p-3 shadow-2xs hover:border-emerald-500 hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer"
+                className="group bg-white dark:bg-stone-800 rounded-3xl p-3 border border-stone-200/90 dark:border-stone-700/80 shadow-2xs hover:shadow-xl hover:border-purple-300 dark:hover:border-purple-600 transition-all flex flex-col justify-between cursor-pointer relative overflow-hidden"
               >
-                <div>
-                  {/* Image with Heart Favorite Button (Matching Screen 4) */}
-                  <div className="relative aspect-square rounded-2xl overflow-hidden mb-2.5 bg-stone-100 dark:bg-stone-700">
-                    <img
-                      src={item.image_path || 'https://images.unsplash.com/photo-1592150621744-aca64f48394a?w=400'}
-                      alt={item.plantName}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                    />
-
-                    {/* Heart button */}
-                    <button
-                      onClick={(e) => toggleFavorite(item.id || '', e)}
-                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/80 dark:bg-stone-900/80 backdrop-blur-xs flex items-center justify-center hover:scale-110 active:scale-95 transition-transform shadow-xs"
-                    >
-                      <Heart className={`w-4 h-4 ${isFav ? 'fill-rose-500 text-rose-500' : 'text-stone-500'}`} />
-                    </button>
-
-                    <div className="absolute bottom-2 left-2 flex items-center space-x-1">
-                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full text-white shadow-xs ${
-                        item.status === 'Healthy' ? 'bg-emerald-600' : 'bg-rose-600'
-                      }`}>
-                        {item.status}
-                      </span>
-                    </div>
+                {/* Top Thumbnail Image */}
+                <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-stone-100 dark:bg-stone-900 mb-2.5 shadow-inner">
+                  <img
+                    src={item.image_path || 'https://images.unsplash.com/photo-1592841200221-a6898f307baa?auto=format&fit=crop&w=300&q=80'}
+                    alt={item.plantName || 'Plant'}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  
+                  {/* Status Badge */}
+                  <div className="absolute top-2 left-2">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black tracking-wide flex items-center space-x-1 shadow-sm ${
+                      isDiseased 
+                        ? 'bg-rose-500/90 backdrop-blur-xs text-white' 
+                        : 'bg-emerald-600/90 backdrop-blur-xs text-white'
+                    }`}>
+                      {isDiseased ? (
+                        <>
+                          <AlertTriangle className="w-2.5 h-2.5 mr-0.5 stroke-[2.5]" />
+                          <span>Diseased</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-2.5 h-2.5 mr-0.5 stroke-[2.5]" />
+                          <span>Healthy</span>
+                        </>
+                      )}
+                    </span>
                   </div>
 
-                  {/* Details */}
-                  <div className="space-y-0.5 px-0.5">
-                    <h3 className="font-extrabold text-xs sm:text-sm text-stone-900 dark:text-stone-100 truncate">
-                      {item.plantName}
-                    </h3>
+                  {/* Favorite Button */}
+                  <button
+                    onClick={(e) => toggleFavorite(id, e)}
+                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/80 dark:bg-stone-900/80 backdrop-blur-xs flex items-center justify-center text-stone-400 hover:text-rose-500 transition-colors shadow-xs"
+                  >
+                    <Heart className={`w-3.5 h-3.5 ${isFavorited ? 'fill-rose-500 text-rose-500' : ''}`} />
+                  </button>
 
-                    <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400 truncate">
-                      {item.diseaseName}
-                    </p>
-
-                    <p className="text-[10px] text-stone-400">
-                      {item.analysis_date ? new Date(item.analysis_date).toLocaleDateString() : 'Identified today'}
-                    </p>
+                  {/* Bottom Date Overlay */}
+                  <div className="absolute bottom-1.5 left-2 right-2 flex items-center justify-between text-[9px] text-white/95 font-semibold bg-black/40 backdrop-blur-xs px-2 py-0.5 rounded-md">
+                    <span className="flex items-center space-x-1">
+                      <Calendar className="w-2.5 h-2.5 inline mr-1" />
+                      {dateStr}
+                    </span>
                   </div>
                 </div>
 
-                {/* Bottom Match Score */}
-                <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-stone-100 dark:border-stone-700/60 px-0.5">
-                  <span className="text-[10px] font-extrabold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full">
-                    ★ {item.confidence}% Match
-                  </span>
+                {/* Plant Info */}
+                <div className="space-y-1 px-1">
+                  <div className="flex items-baseline justify-between">
+                    <h4 className="text-xs sm:text-sm font-black text-stone-900 dark:text-stone-100 truncate group-hover:text-purple-600 transition-colors">
+                      {item.plantName || 'Unknown Plant'}
+                    </h4>
+                  </div>
 
-                  {item.id && (
+                  <p className="text-[11px] text-stone-500 dark:text-stone-400 truncate">
+                    {isDiseased 
+                      ? (item.diseaseName || 'Pest / Pathogen detected') 
+                      : 'Healthy Crop'}
+                  </p>
+                </div>
+
+                {/* Bottom Match Score & Direct Delete Button */}
+                <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-stone-100 dark:border-stone-700/60 px-0.5">
+                  <span className="text-[10px] font-extrabold text-purple-600 dark:text-purple-400">
+                    {item.confidence || 95}% match
+                  </span>
+                  
+                  <div className="flex items-center space-x-1">
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (confirm('Delete this plant record?')) {
-                          onDeleteRecord(item.id!);
-                        }
-                      }}
-                      className="p-1 rounded-lg text-stone-300 hover:text-rose-600 transition-colors"
-                      title={t.delete}
+                      onClick={(e) => handleDeleteItem(id, e)}
+                      title="Delete record"
+                      className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
-                  )}
+                    <span className="text-[10px] font-bold text-stone-400 group-hover:text-purple-600 group-hover:translate-x-0.5 transition-all">
+                      →
+                    </span>
+                  </div>
                 </div>
               </div>
             );
